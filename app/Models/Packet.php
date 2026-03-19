@@ -16,7 +16,10 @@ class Packet extends Model
         'recipient_email',
         'destination_address',
         'weight_grams',
-        'status',
+    ];
+
+    protected $attributes = [
+        'status' => 'created',
     ];
 
     protected function casts(): array

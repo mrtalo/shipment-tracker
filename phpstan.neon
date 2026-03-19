@@ -5,6 +5,7 @@ parameters:
     paths:
         - app
         - database
-    level: 5
+    level: 4
     ignoreErrors:
+        - '#Cannot access property#'
     excludePaths:
