@@ -6,7 +6,7 @@ use App\Enums\PacketStatus;
 use App\Exceptions\InvalidPacketTransitionException;
 use App\Jobs\SendPacketStatusWebhookJob;
 use App\Models\Packet;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 
 class PacketService
@@ -48,19 +48,15 @@ class PacketService
         return $packet->fresh();
     }
 
-    public function list(?string $status = null): Collection
+    public function list(?string $status = null): Builder
     {
-        $cacheKey = 'packets:list:'.($status ?? 'all');
+        $query = Packet::query();
 
-        return Cache::remember($cacheKey, 300, function () use ($status) {
-            $query = Packet::query();
+        if ($status) {
+            $query->where('status', $status);
+        }
 
-            if ($status) {
-                $query->where('status', $status);
-            }
-
-            return $query->get();
-        });
+        return $query;
     }
 
     public function find(int $id): ?Packet

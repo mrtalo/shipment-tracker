@@ -145,6 +145,10 @@ Filtro opcional por estado:
 
 **GET** `/api/packets?status=in_transit`
 
+**Paginación**: 15 elementos por página
+
+**GET** `/api/packets?page=2`
+
 **Respuesta**: `200 OK`
 
 ```json
@@ -156,7 +160,19 @@ Filtro opcional por estado:
       "status": "in_transit",
       ...
     }
-  ]
+  ],
+  "links": {
+    "first": "http://localhost:8000/api/packets?page=1",
+    "last": "http://localhost:8000/api/packets?page=3",
+    "prev": null,
+    "next": "http://localhost:8000/api/packets?page=2"
+  },
+  "meta": {
+    "current_page": 1,
+    "last_page": 3,
+    "per_page": 15,
+    "total": 42
+  }
 }
 ```
 
@@ -218,6 +234,9 @@ $signature = 'sha256=' . hash_hmac('sha256', $payload, 'CARRIER_WEBHOOK_SECRET')
 - `401 Unauthorized`: Firma inválida
 - `404 Not Found`: Tracking code no existe
 - `422 Unprocessable Entity`: Transición de estado inválida
+- `429 Too Many Requests`: Rate limit excedido (máx 60 requests/minuto)
+
+**Rate Limiting**: Este endpoint está protegido con rate limiting de 60 requests por minuto para prevenir abuso.
 
 ## Decisiones de Diseño
 
@@ -340,6 +359,40 @@ enum PacketStatus: string {
 - Fácil agregar campos calculados
 - Versionado futuro simplificado
 
+### 9. Paginación
+
+**Decisión**: Paginar GET /api/packets con 15 elementos por página.
+
+**Razón**:
+- **Escalabilidad**: Previene memory overflow con miles/millones de packets
+- **Performance**: Queries más rápidas, menos datos transferidos
+- **UX**: Mejor experiencia en frontend con datos manejables
+- **Estándar**: Formato Laravel estándar con links y meta
+
+**Implementación**:
+```php
+$packets = $this->packetService->list($status)->paginate(15);
+```
+
+**Alternativa considerada**: Cursor-based pagination (mejor para streams infinitos, pero más complejo).
+
+### 10. Rate Limiting en Webhooks
+
+**Decisión**: Limitar POST /api/webhooks/carrier a 60 requests/minuto.
+
+**Razón**:
+- **Seguridad**: Previene DDoS y abuso del endpoint
+- **Recursos**: Protege base de datos y workers de sobrecarga
+- **Buenas prácticas**: Estándar de industria para webhooks públicos
+- **Producción**: Protección necesaria en ambientes reales con tráfico externo
+
+**Implementación**:
+```php
+Route::post('/webhooks/carrier', ...)->middleware('throttle:60,1');
+```
+
+**Por qué 60/min**: Balance entre flexibilidad para carriers legítimos y protección contra abuso.
+
 ## Testing
 
 ### Cobertura
@@ -350,10 +403,11 @@ enum PacketStatus: string {
 
 - **PacketTest**: Creación de packets, validaciones
 - **PacketStatusTest**: Transiciones de estado válidas/inválidas
-- **PacketListTest**: Listado, filtros, cache
+- **PacketListTest**: Listado, filtros, paginación
 - **PacketShowTest**: Detalle individual, cache, 404
 - **PacketWebhookTest**: Notificaciones salientes
 - **CarrierWebhookTest**: Webhooks entrantes, HMAC
+- **RateLimitingTest**: Rate limiting en webhooks
 
 ### Unit Tests
 

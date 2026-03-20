@@ -45,7 +45,7 @@ class PacketController extends Controller
     {
         $status = $request->query('status');
 
-        $packets = $this->packetService->list($status);
+        $packets = $this->packetService->list($status)->paginate(15);
 
         return PacketResource::collection($packets);
     }

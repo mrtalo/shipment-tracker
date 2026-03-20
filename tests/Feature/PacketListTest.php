@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Packet;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -51,66 +50,41 @@ class PacketListTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
-    public function test_list_uses_cache(): void
+    public function test_paginates_results(): void
     {
-        Packet::factory()->count(2)->create();
+        Packet::factory()->count(20)->create();
 
-        DB::enableQueryLog();
+        $response = $this->getJson('/api/packets');
 
-        $this->getJson('/api/packets');
-        $firstCallQueries = count(DB::getQueryLog());
-
-        DB::flushQueryLog();
-
-        $this->getJson('/api/packets');
-        $secondCallQueries = count(DB::getQueryLog());
-
-        $this->assertGreaterThan($secondCallQueries, $firstCallQueries);
+        $response->assertStatus(200)
+            ->assertJsonCount(15, 'data')
+            ->assertJsonStructure([
+                'data',
+                'links',
+                'meta' => ['current_page', 'last_page', 'per_page', 'total'],
+            ]);
     }
 
-    public function test_cache_is_invalidated_on_create(): void
+    public function test_can_navigate_pages(): void
     {
-        Packet::factory()->create();
+        Packet::factory()->count(20)->create();
 
-        $this->getJson('/api/packets');
+        $response = $this->getJson('/api/packets?page=2');
 
-        $this->assertTrue(Cache::has('packets:list:all'));
-
-        $this->postJson('/api/packets', [
-            'tracking_code' => 'NEW-123',
-            'recipient_name' => 'John Doe',
-            'recipient_email' => 'john@example.com',
-            'destination_address' => '123 Main St',
-            'weight_grams' => 1000,
-        ]);
-
-        $this->assertFalse(Cache::has('packets:list:all'));
+        $response->assertStatus(200)
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.current_page', 2);
     }
 
-    public function test_cache_is_invalidated_on_status_update(): void
+    public function test_pagination_respects_status_filter(): void
     {
-        $packet = Packet::factory()->create(['status' => 'created']);
+        Packet::factory()->count(20)->create(['status' => 'created']);
+        Packet::factory()->count(5)->create(['status' => 'in_transit']);
 
-        $this->getJson('/api/packets');
+        $response = $this->getJson('/api/packets?status=in_transit');
 
-        $this->assertTrue(Cache::has('packets:list:all'));
-
-        $this->putJson("/api/packets/{$packet->id}/status", [
-            'status' => 'in_transit',
-        ]);
-
-        $this->assertFalse(Cache::has('packets:list:all'));
-    }
-
-    public function test_filtered_list_uses_separate_cache(): void
-    {
-        Packet::factory()->create(['status' => 'created']);
-        Packet::factory()->create(['status' => 'in_transit']);
-
-        $this->getJson('/api/packets?status=created');
-        $this->getJson('/api/packets?status=in_transit');
-
-        $this->assertTrue(Cache::has('packets:list:created'));
-        $this->assertTrue(Cache::has('packets:list:in_transit'));
+        $response->assertStatus(200)
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('meta.total', 5);
     }
 }

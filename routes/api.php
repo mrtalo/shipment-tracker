@@ -9,4 +9,5 @@ Route::get('/packets', [PacketController::class, 'index']);
 Route::get('/packets/{id}', [PacketController::class, 'show']);
 Route::put('/packets/{packet}/status', [PacketController::class, 'updateStatus']);
 
-Route::post('/webhooks/carrier', [CarrierWebhookController::class, 'handle']);
+Route::post('/webhooks/carrier', [CarrierWebhookController::class, 'handle'])
+    ->middleware('throttle:60,1');
