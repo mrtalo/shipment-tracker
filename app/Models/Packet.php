@@ -6,6 +6,9 @@ use App\Enums\PacketStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property PacketStatus $status
+ */
 class Packet extends Model
 {
     use HasFactory;

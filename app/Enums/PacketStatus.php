@@ -27,4 +27,16 @@ enum PacketStatus: string
             self::FAILED => 'Failed',
         };
     }
+
+    /**
+     * @return array<self>
+     */
+    public function validNextStates(): array
+    {
+        return match ($this) {
+            self::CREATED => [self::IN_TRANSIT],
+            self::IN_TRANSIT => [self::DELIVERED, self::FAILED],
+            self::DELIVERED, self::FAILED => [],
+        };
+    }
 }
