@@ -1,59 +1,516 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Shipment Tracker API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistema de tracking de envíos con gestión de estados, notificaciones asíncronas y webhooks seguros.
 
-## About Laravel
+## Tecnologías
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Framework**: Laravel 12
+- **PHP**: 8.2+
+- **Base de Datos**: SQLite
+- **Cola de Jobs**: Database driver
+- **Caché**: File driver
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requisitos del Sistema
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 8.2 o superior
+- Composer
+- Extensiones PHP: `sqlite3`, `pdo_sqlite`, `mbstring`, `xml`, `curl`
 
-## Learning Laravel
+## Instalación
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### 1. Clonar el repositorio
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```bash
+git clone <repository-url>
+cd shipment-tracker
+```
 
-## Laravel Sponsors
+### 2. Instalar dependencias
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```bash
+composer install
+```
 
-### Premium Partners
+### 3. Configurar entorno
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-## Contributing
+### 4. Crear base de datos
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+touch database/database.sqlite
+```
 
-## Code of Conduct
+### 5. Ejecutar migraciones
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan migrate
+```
 
-## Security Vulnerabilities
+### 6. Crear tabla de jobs
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan queue:table
+php artisan migrate
+```
 
-## License
+## Configuración
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Variables de Entorno Importantes
+
+Editar `.env` con los siguientes valores:
+
+```env
+# URL donde se enviarán notificaciones de cambios de estado
+WEBHOOK_URL=https://your-webhook-endpoint.com/notifications
+
+# Secret compartido para validar webhooks entrantes del carrier
+CARRIER_WEBHOOK_SECRET=your-secret-key-here
+
+# Driver de cola (database recomendado para desarrollo)
+QUEUE_CONNECTION=database
+
+# Driver de caché (file recomendado para desarrollo)
+CACHE_STORE=file
+```
+
+## Ejecución
+
+### Servidor de desarrollo
+
+```bash
+php artisan serve
+```
+
+La API estará disponible en `http://localhost:8000`
+
+### Worker de colas (requerido para webhooks salientes)
+
+En una terminal separada, ejecutar:
+
+```bash
+php artisan queue:work
+```
+
+Este proceso debe estar corriendo para que se envíen las notificaciones asíncronas.
+
+### Ejecutar tests
+
+```bash
+php artisan test
+```
+
+## API Endpoints
+
+### 1. Crear Envío
+
+**POST** `/api/packets`
+
+```json
+{
+  "tracking_code": "CL-2024-001",
+  "recipient_name": "Juan Pérez",
+  "recipient_email": "juan.perez@test.cl",
+  "destination_address": "Av. Providencia 1234, Providencia, Santiago",
+  "weight_grams": 2500
+}
+```
+
+**Respuesta**: `201 Created`
+
+```json
+{
+  "data": {
+    "id": 1,
+    "tracking_code": "CL-2024-001",
+    "recipient_name": "Juan Pérez",
+    "recipient_email": "juan.perez@test.cl",
+    "destination_address": "Av. Providencia 1234, Providencia, Santiago",
+    "weight_grams": 2500,
+    "status": "created",
+    "created_at": "2026-03-20T10:00:00.000000Z",
+    "updated_at": "2026-03-20T10:00:00.000000Z"
+  }
+}
+```
+
+### 2. Listar Envíos
+
+**GET** `/api/packets`
+
+Filtro opcional por estado:
+
+**GET** `/api/packets?status=in_transit`
+
+**Respuesta**: `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "tracking_code": "CL-2024-001",
+      "status": "in_transit",
+      ...
+    }
+  ]
+}
+```
+
+### 3. Ver Detalle de Envío
+
+**GET** `/api/packets/{id}`
+
+**Respuesta**: `200 OK` o `404 Not Found`
+
+### 4. Cambiar Estado
+
+**PUT** `/api/packets/{id}/status`
+
+```json
+{
+  "status": "in_transit"
+}
+```
+
+**Transiciones válidas:**
+- `created` → `in_transit`
+- `in_transit` → `delivered`
+- `in_transit` → `failed`
+
+Cualquier otra transición retorna `422 Unprocessable Entity`.
+
+**Respuesta**: `200 OK`
+
+**Efecto secundario**: Se envía una notificación asíncrona a `WEBHOOK_URL`.
+
+### 5. Webhook Entrante (Carrier)
+
+**POST** `/api/webhooks/carrier`
+
+```json
+{
+  "tracking_code": "CL-2024-001",
+  "status": "delivered",
+  "timestamp": "2026-03-20T15:30:00Z",
+  "signature": "sha256=abc123..."
+}
+```
+
+**Validación de firma HMAC**:
+
+El carrier debe generar la firma así:
+
+```php
+$payload = json_encode([
+  'tracking_code' => 'CL-2024-001',
+  'status' => 'delivered',
+  'timestamp' => '2026-03-20T15:30:00Z'
+]);
+$signature = 'sha256=' . hash_hmac('sha256', $payload, 'CARRIER_WEBHOOK_SECRET');
+```
+
+**Respuestas**:
+- `200 OK`: Procesado correctamente
+- `401 Unauthorized`: Firma inválida
+- `404 Not Found`: Tracking code no existe
+- `422 Unprocessable Entity`: Transición de estado inválida
+
+## Decisiones de Diseño
+
+### 1. Service Layer Pattern
+
+**Decisión**: Toda la lógica de negocio vive en servicios (`PacketService`, `WebhookSignatureService`).
+
+**Razón**:
+- **Testabilidad**: Servicios fáciles de mockear y testear aisladamente
+- **Reutilización**: Misma lógica desde múltiples controllers
+- **Mantenibilidad**: Un solo lugar para reglas de negocio
+- **SOLID**: Responsabilidad única bien definida
+
+**Alternativa rechazada**: Lógica en controllers o modelos (fat controllers/models).
+
+### 2. Cache Strategy: Cache-Aside Pattern
+
+**Decisión**: Cache de 5 minutos (TTL 300s) en endpoints GET con invalidación eager.
+
+**Implementación**:
+- **Keys**: `packets:list:{status}`, `packets:{id}`
+- **TTL**: 300 segundos
+- **Invalidación**: Al crear o actualizar, limpiamos caches relacionados
+- **Driver**: File (simple, sin dependencias externas)
+
+**Razón**:
+- Balance entre performance y consistencia
+- Invalidación eager evita datos stale críticos
+- File driver suficiente para volumen esperado
+
+**Alternativa considerada**: Cache tags (no soportado por driver file).
+
+### 3. HMAC Signature Validation
+
+**Decisión**: Usar `hash_equals()` para comparar firmas, no `===`.
+
+**Razón**:
+- **Seguridad**: Previene timing attacks
+- `hash_equals()` hace comparación en tiempo constante
+- `===` permite medir tiempos de respuesta para adivinar firma byte a byte
+
+**Código**:
+```php
+return hash_equals($expectedSignature, $receivedSignature);
+```
+
+### 4. Jobs con ShouldBeUnique
+
+**Decisión**: `SendPacketStatusWebhookJob` implementa `ShouldBeUnique`.
+
+**Razón**:
+- Previene envío duplicado si el job se encola múltiples veces
+- `uniqueId()` basado en `{tracking_code}-{new_status}`
+- Importante para idempotencia de webhooks
+
+**Configuración**:
+- `tries = 2` (1 reintento)
+- `backoff = 30` (30 segundos entre reintentos)
+
+### 5. No Observers/Events para Business Logic
+
+**Decisión**: No usar Observers de Eloquent para disparar webhooks.
+
+**Razón**:
+- **Visibilidad**: Explícito > Mágico
+- **Testing**: Sin `createQuietly()` hacks
+- **Debugging**: Stack traces claros
+- **Control**: Fácil condicionar o desactivar
+
+**Implementación**:
+```php
+// En PacketService::updateStatus()
+SendPacketStatusWebhookJob::dispatch(...);
+```
+
+### 6. State Machine en Enum
+
+**Decisión**: `PacketStatus` enum con método `canTransitionTo()`.
+
+**Razón**:
+- Type-safety en PHP 8.2+
+- Lógica de transiciones co-localizada con estados
+- IDE autocomplete
+- Imposible valores inválidos
+
+**Código**:
+```php
+enum PacketStatus: string {
+    case CREATED = 'created';
+    case IN_TRANSIT = 'in_transit';
+    case DELIVERED = 'delivered';
+    case FAILED = 'failed';
+
+    public function canTransitionTo(PacketStatus $new): bool { ... }
+}
+```
+
+### 7. FormRequests para Validación
+
+**Decisión**: Toda validación en clases `FormRequest` separadas.
+
+**Razón**:
+- Separation of Concerns
+- Reutilizable
+- Testeable independientemente
+- Controllers delgados
+
+**Ejemplos**:
+- `StorePacketRequest`
+- `UpdatePacketStatusRequest`
+- `CarrierWebhookRequest`
+
+### 8. API Resources para Transformación
+
+**Decisión**: `PacketResource` transforma modelos a JSON.
+
+**Razón**:
+- Consistencia en respuestas API
+- Control sobre qué campos exponer
+- Fácil agregar campos calculados
+- Versionado futuro simplificado
+
+## Testing
+
+### Cobertura
+
+**64 tests**, **159 assertions**
+
+### Feature Tests
+
+- **PacketTest**: Creación de packets, validaciones
+- **PacketStatusTest**: Transiciones de estado válidas/inválidas
+- **PacketListTest**: Listado, filtros, cache
+- **PacketShowTest**: Detalle individual, cache, 404
+- **PacketWebhookTest**: Notificaciones salientes
+- **CarrierWebhookTest**: Webhooks entrantes, HMAC
+
+### Unit Tests
+
+- **PacketServiceTest**: Lógica de negocio aislada
+- **WebhookSignatureServiceTest**: Generación y validación HMAC
+- **SendPacketStatusWebhookJobTest**: Retry logic, uniqueness
+
+### Ejecutar tests
+
+```bash
+# Todos los tests
+php artisan test
+
+# Tests específicos
+php artisan test --filter=PacketTest
+
+# Con coverage (requiere xdebug)
+php artisan test --coverage
+```
+
+## Herramientas de Calidad
+
+### Pint (Code Style - PSR-12)
+
+```bash
+# Revisar estilo sin modificar
+./vendor/bin/pint --test
+
+# Auto-formatear código
+./vendor/bin/pint
+```
+
+### PHPStan (Static Analysis - Level 5)
+
+```bash
+# Analizar código
+./vendor/bin/phpstan analyse
+
+# Con más memoria si es necesario
+./vendor/bin/phpstan analyse --memory-limit=512M
+```
+
+## Estructura del Proyecto
+
+```
+app/
+├── Enums/
+│   └── PacketStatus.php          # Estados con lógica de transición
+├── Exceptions/
+│   └── InvalidPacketTransitionException.php
+├── Http/
+│   ├── Controllers/Api/
+│   │   ├── CarrierWebhookController.php
+│   │   └── PacketController.php
+│   ├── Requests/
+│   │   ├── CarrierWebhookRequest.php
+│   │   ├── StorePacketRequest.php
+│   │   └── UpdatePacketStatusRequest.php
+│   └── Resources/
+│       └── PacketResource.php
+├── Jobs/
+│   └── SendPacketStatusWebhookJob.php
+├── Models/
+│   └── Packet.php
+└── Services/
+    ├── PacketService.php         # Lógica de negocio principal
+    └── WebhookSignatureService.php
+```
+
+## Arquitectura
+
+```
+┌─────────────┐
+│   Request   │
+└──────┬──────┘
+       │
+       v
+┌─────────────────┐
+│  FormRequest    │ ← Validación
+│  (validation)   │
+└──────┬──────────┘
+       │
+       v
+┌─────────────────┐
+│   Controller    │ ← Orquestación (delgado)
+└──────┬──────────┘
+       │
+       v
+┌─────────────────┐
+│    Service      │ ← Lógica de negocio
+└──────┬──────────┘
+       │
+       v
+┌─────────────────┐
+│     Model       │ ← Persistencia
+└──────┬──────────┘
+       │
+       v
+┌─────────────────┐
+│   Resource      │ ← Transformación JSON
+└──────┬──────────┘
+       │
+       v
+┌─────────────────┐
+│    Response     │
+└─────────────────┘
+```
+
+## Flujos Principales
+
+### 1. Creación de Packet
+
+```
+POST /api/packets
+  → StorePacketRequest valida
+  → PacketController::store()
+  → PacketService::create()
+  → Packet guardado en DB
+  → Cache de listas invalidado
+  → PacketResource retornado (201)
+```
+
+### 2. Cambio de Estado
+
+```
+PUT /api/packets/{id}/status
+  → UpdatePacketStatusRequest valida
+  → PacketController::updateStatus()
+  → PacketService::updateStatus()
+  → Valida transición (throw si inválida)
+  → Actualiza packet en DB
+  → Dispatch SendPacketStatusWebhookJob
+  → Cache invalidado (packet + listas)
+  → PacketResource retornado (200)
+
+  [Async]
+  → SendPacketStatusWebhookJob::handle()
+  → POST a WEBHOOK_URL
+  → Retry si falla (1 vez, 30s backoff)
+```
+
+### 3. Webhook Entrante
+
+```
+POST /api/webhooks/carrier
+  → CarrierWebhookRequest valida campos
+  → CarrierWebhookController::handle()
+  → WebhookSignatureService::validate()
+    → 401 si firma inválida
+  → Buscar packet por tracking_code
+    → 404 si no existe
+  → PacketService::updateStatus()
+    → 422 si transición inválida
+  → Trigger webhook saliente (async)
+  → 200 OK
+```
+
+## Licencia
+
+Este proyecto es una prueba técnica.
