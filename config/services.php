@@ -39,4 +39,8 @@ return [
         'url' => env('WEBHOOK_URL'),
     ],
 
+    'carrier' => [
+        'webhook_secret' => env('CARRIER_WEBHOOK_SECRET'),
+    ],
+
 ];
