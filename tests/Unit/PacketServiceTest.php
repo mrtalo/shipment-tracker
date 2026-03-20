@@ -7,6 +7,7 @@ use App\Exceptions\InvalidPacketTransitionException;
 use App\Models\Packet;
 use App\Services\PacketService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class PacketServiceTest extends TestCase
@@ -19,6 +20,7 @@ class PacketServiceTest extends TestCase
     {
         parent::setUp();
         $this->service = new PacketService;
+        Queue::fake();
     }
 
     public function test_updates_packet_status_successfully(): void

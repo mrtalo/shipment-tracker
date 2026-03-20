@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\PacketStatus;
 use App\Exceptions\InvalidPacketTransitionException;
+use App\Jobs\SendPacketStatusWebhookJob;
 use App\Models\Packet;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -25,8 +26,17 @@ class PacketService
             );
         }
 
+        $oldStatus = $packet->status->value;
+
         $packet->status = $newStatusEnum;
         $packet->save();
+
+        SendPacketStatusWebhookJob::dispatch(
+            $packet->tracking_code,
+            $oldStatus,
+            $newStatusEnum->value,
+            $packet->updated_at->toIso8601String()
+        );
 
         return $packet->fresh();
     }

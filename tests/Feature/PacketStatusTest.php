@@ -5,12 +5,19 @@ namespace Tests\Feature;
 use App\Enums\PacketStatus;
 use App\Models\Packet;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class PacketStatusTest extends TestCase
 {
     use DatabaseTransactions;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Queue::fake();
+    }
 
     #[DataProvider('validTransitionsProvider')]
     public function test_allows_valid_status_transitions(string $from, string $to): void
