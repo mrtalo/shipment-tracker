@@ -6,7 +6,7 @@ use App\Enums\PacketStatus;
 use App\Exceptions\InvalidPacketTransitionException;
 use App\Jobs\SendPacketStatusWebhookJob;
 use App\Models\Packet;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 
 class PacketService
@@ -48,15 +48,21 @@ class PacketService
         return $packet->fresh();
     }
 
-    public function list(?string $status = null): Builder
+    public function list(?string $status = null, int $perPage = 15): LengthAwarePaginator
     {
-        $query = Packet::query();
+        $page = request()->query('page', 1);
+        $statusKey = $status ?? 'all';
+        $cacheKey = "packets:list:{$statusKey}:page:{$page}";
 
-        if ($status) {
-            $query->where('status', $status);
-        }
+        return Cache::remember($cacheKey, 300, function () use ($status, $perPage) {
+            $query = Packet::query();
 
-        return $query;
+            if ($status) {
+                $query->where('status', $status);
+            }
+
+            return $query->latest()->paginate($perPage);
+        });
     }
 
     public function find(int $id): ?Packet
@@ -68,11 +74,10 @@ class PacketService
 
     private function clearListCaches(): void
     {
-        Cache::forget('packets:list:all');
-        Cache::forget('packets:list:created');
-        Cache::forget('packets:list:in_transit');
-        Cache::forget('packets:list:delivered');
-        Cache::forget('packets:list:failed');
+        $statuses = ['all', 'created', 'in_transit', 'delivered', 'failed'];
+        foreach ($statuses as $status) {
+            Cache::forget("packets:list:{$status}:page:1");
+        }
     }
 
     private function clearPacketCaches(int $id): void
